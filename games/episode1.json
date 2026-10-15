@@ -1,0 +1,28 @@
+{
+  "title": "Episode 1",
+  "giftPrize": "A mystery gift",
+  "rounds": [
+    { "type": "tossup", "value": 1000, "category": "Phrase", "puzzle": "BETTER LATE THAN NEVER" },
+    { "type": "tossup", "value": 2000, "category": "Food & Drink", "puzzle": "PEANUT BUTTER COOKIES", "decidesStart": true },
+    { "type": "round", "wheel": 1, "category": "Before & After", "puzzle": "HOT DOG DAYS OF SUMMER" },
+    { "type": "round", "wheel": 2, "category": "What Are You Doing?", "puzzle": "SINGING IN THE SHOWER" },
+    { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
+    { "type": "triple", "value": 2000, "category": "Things", "puzzles": ["A DECK / OF CARDS", "A ROLL / OF STAMPS", "A BOX / OF CRAYONS"] },
+    { "type": "round", "wheel": 4, "category": "Rhyme Time", "puzzle": "SNUG AS A BUG / IN A RUG" },
+    { "type": "round", "wheel": 4, "category": "Event", "puzzle": "A SURPRISE BIRTHDAY PARTY", "speedUp": true }
+  ],
+  "tiebreaker": { "category": "Phrase", "puzzle": "TIME WILL TELL" },
+  "bonus": {
+    "categories": [
+      { "category": "Phrase", "puzzle": "JUST MY LUCK" },
+      { "category": "Place", "puzzle": "COUNTRY ROAD" },
+      { "category": "Thing", "puzzle": "WARM BLANKET" }
+    ],
+    "envelopes": [
+      40000, 40000, 40000, 40000, 40000, 40000,
+      45000, 45000, 45000, 45000, 45000, 45000,
+      50000, 50000, 50000, 50000, 50000, 60000,
+      60000, 75000, 75000, 75000, 100000, 100000
+    ]
+  }
+}
