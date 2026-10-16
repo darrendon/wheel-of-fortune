@@ -9,7 +9,7 @@
     { "type": "round", "wheel": 1, "top": 3500, "category": "Around the House", "puzzle": "A JUNK DRAWER FULL OF ODDS AND ENDS" },
     { "type": "round", "wheel": 2, "category": "What Are You Doing?", "puzzle": "SINGING IN THE SHOWER" },
     { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
-    { "type": "triple", "value": 2000, "category": "Things", "puzzles": ["A HOUSE / OF STRAW", "A HOUSE / OF STICKS", "A HOUSE / OF BRICKS"] },
+    { "type": "triple", "value": 2000, "category": "Food & Drink", "puzzles": ["BREAKFAST / IN BED", "LUNCH ON / THE GO", "DINNER AND / A MOVIE"] },
     { "type": "round", "wheel": 4, "category": "Rhyme Time", "puzzle": "SNUG AS A BUG / IN A RUG" },
     { "type": "round", "wheel": 4, "category": "Event", "puzzle": "A SURPRISE BIRTHDAY PARTY", "speedUp": true }
   ],
