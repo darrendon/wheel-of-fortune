@@ -37,6 +37,7 @@ If the top teams are tied at the end, a tiebreaker toss-up decides it.
 - **Esc:** wrong, or time's up and play passes
 - **Ctrl+Z / ⌘Z:** undo the last thing you did
 - Click a team's podium to give them control if play got out of order
+- **0:** show or hide the play-along leaderboard on the TV
 
 The game saves itself in the browser, so a refresh or a closed tab won't lose a game in progress — you'll see a **Resume** button.
 
@@ -53,6 +54,23 @@ To put the board on the TV:
 - **HDMI or AirPlay as a second display:** drag the board window onto the TV and press **F** on it for full screen. Use "extend" rather than "mirror".
 
 Click the board once after it opens so the browser lets it play sound; the sounds then come out of the TV.
+
+## Audience play-along
+
+Everyone who isn't on a team can solve along on their phone, with a leaderboard that runs all game. It works like Dim Sum Rush: messages go through a free public relay, so there's nothing to sign up for or set up.
+
+1. On the team setup screen, press **Turn on play-along**. You get a 5-letter room code, and a QR code shows up on the TV's title screen.
+2. People scan the QR code (or go to the site address with `/play` on the end and type the room code), enter a name, and they're in. People can join any time; the room code stays in the corner of the TV.
+3. Each puzzle shows up on their phone as soon as it's on the board, with the same blank spaces and revealed letters the TV shows. They get **one guess per puzzle** — the whole answer. Capitals, spaces and punctuation don't matter.
+4. **Scoring:** a right answer is worth up to 1,000 points, depending on how much of the puzzle was still hidden when they locked it in. Lock in with every letter still blank and it's 1,000; with 30% still hidden it's 300. A wrong guess is worth nothing. Every puzzle uses the same scale, toss-ups and the Bonus Round included.
+5. **No spoilers:** phones only say "Locked in" until the puzzle is solved on stage, and the answer never reaches the phones before then, so nobody in the audience can tip off a team.
+6. When a puzzle is solved, everyone's phone shows how they did, and a few seconds later the TV shows the top five and the fastest solver. The leaderboard goes away when the next puzzle starts. Press **0** to show or hide it any time — for example after the Bonus Round envelope, where it doesn't come up on its own so the envelope gets its moment. The Final Scores screen shows the play-along leaderboard next to the teams.
+
+Your host screen shows how many people have joined and how many have locked in on the current puzzle (and how many are right — only you see that).
+
+If you refresh the host tab, play-along comes back with the same room code and everyone's scores. Phones reconnect by themselves if they sleep or lose Wi-Fi for a moment. **Reset scores** starts the leaderboard over, and **New room code** opens a fresh room (everyone has to join again). Scores carry over if you press **Play again**.
+
+The host tab has to stay open, since it's what checks the guesses. Messages go through public relays that anyone could listen in on, so the play-along never sends an answer before it's solved on stage — fine for a party, but don't use it for anything private.
 
 ## Editing the puzzles
 

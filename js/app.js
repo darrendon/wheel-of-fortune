@@ -1,6 +1,24 @@
 import { playSound, stopMusic, toggleMute, setMuted, isMuted, unlockAudio, checkSoundFiles } from "./sounds.js?v=__V__";
 import { layout, boardHtml, isLetter, VOWELS, plainAnswer } from "./board.js?v=__V__";
 import {
+  aud,
+  loadAudience,
+  startAudience,
+  stopAudience,
+  resetScores,
+  newRoom,
+  setOnChange,
+  syncPuzzle,
+  standings as audStandings,
+  activeCount,
+  puzzleStats,
+  toggleLeaderboard,
+  tvSummary,
+  joinUrl,
+  shortUrl,
+} from "./audience.js?v=__V__";
+import qrcode from "./vendor/qrcode.mjs";
+import {
   buildWheel,
   wheelSvg,
   bonusWheelSvg,
@@ -1252,6 +1270,7 @@ const actions = {
     clearSaved();
     cueStop();
     state.screen = "game";
+    state.run = Date.now().toString(36);
     startSegment(0);
   },
   backToEpisodes: () => {
@@ -1292,6 +1311,11 @@ const actions = {
     startSetup(state.game, state.gameId);
   },
   undo: () => undo(),
+  audOn: () => startAudience(),
+  audOff: () => stopAudience(),
+  audReset: () => resetScores(),
+  audNewRoom: () => newRoom(),
+  audBoard: () => toggleLeaderboard(),
   toggleMute: () => {
     toggleMute();
     send({ type: "mute", muted: isMuted() });
@@ -1422,7 +1446,10 @@ function render() {
   app.innerHTML = html + (IS_BOARD ? renderSoundPrompt() : "");
   placeWheel();
   showFlash(fx.flash);
-  if (!IS_BOARD) send({ type: "state", state, fx });
+  if (!IS_BOARD) {
+    syncPuzzle(audiencePuzzle());
+    send({ type: "state", state, fx, aud: tvSummary() });
+  }
   fx = { justShown: [], wave: false, flash: null };
   const view = state.screen + state.segIndex;
   if (view !== lastView) window.scrollTo(0, 0);
@@ -1485,6 +1512,194 @@ function usedLetters(p, { host = false } = {}) {
       return `<span class="${v}${used ? " gone" : ""}">${L}</span>`;
     })
     .join("")}</div>`;
+}
+
+// ---- Audience play-along ----------------------------------------------------
+
+let audView = null; // the TV's copy of the play-along summary
+
+// What's on the board right now, for the phones.
+function audiencePuzzle() {
+  const run = state.run || state.gameId || "g";
+  if (state.screen === "game" && state.cur) {
+    const p = state.cur;
+    const done = p.phase === "done";
+    return {
+      pid: `${run}:${state.segIndex}`,
+      open: !done,
+      done,
+      seg: segName(p.seg),
+      cat: p.seg.category,
+      cells: p.cells,
+      shown: p.shown,
+      lit: p.lit,
+      used: p.kind === "round" ? p.used : [],
+      answer: p.seg.puzzle,
+      answerText: plainAnswer(p.seg.puzzle),
+      autoBoard: true,
+      title: state.game?.title || "",
+    };
+  }
+  const b = state.bonus;
+  if (state.screen === "bonus" && b?.cells?.length) {
+    const visible = !["category", "spin", "spinning"].includes(b.phase);
+    const done = ["reveal", "done"].includes(b.phase);
+    return {
+      pid: `${run}:bonus`,
+      open: visible && !done,
+      done,
+      seg: "Bonus Round",
+      cat: visible ? b.category : "",
+      cells: visible ? b.cells : [],
+      shown: b.shown,
+      lit: b.lit,
+      used: b.used,
+      answer: b.puzzle,
+      answerText: plainAnswer(b.puzzle),
+      autoBoard: false, // the envelope is the moment; press 0 for the leaderboard after
+      title: state.game?.title || "",
+    };
+  }
+  return null;
+}
+
+// Redraw when phones join or guess, without stealing focus from a text box.
+let audPending = false;
+setOnChange(() => {
+  if (IS_BOARD) return;
+  if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+    audPending = true;
+    send({ type: "state", state, fx: { justShown: [], wave: false, flash: null }, aud: tvSummary() });
+    return;
+  }
+  render();
+});
+document.addEventListener("focusout", () => {
+  if (!audPending) return;
+  setTimeout(() => {
+    if (audPending && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+      audPending = false;
+      render();
+    }
+  }, 50);
+});
+
+const qrCache = new Map();
+function qrSvg(text) {
+  if (qrCache.has(text)) return qrCache.get(text);
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + 2} ${r + 2}h1v1h-1z`;
+  const svg = `<svg class="qr" viewBox="0 0 ${n + 4} ${n + 4}" shape-rendering="crispEdges" aria-label="QR code"><rect width="${n + 4}" height="${n + 4}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+  qrCache.set(text, svg);
+  return svg;
+}
+
+const audStatusText = () =>
+  ({ connecting: "Connecting…", live: "Live", down: "Reconnecting…", error: "Couldn't connect", off: "Off" })[aud.status] || aud.status;
+
+// Host: the play-along card on the team setup screen.
+function hostAudienceSetup() {
+  if (!aud.on) {
+    return `<div class="aud-card">
+      <div><h3>📱 Audience play-along</h3><p class="small">Everyone who isn't on a team can solve along on their phone. The more of the puzzle that's still hidden when they lock in a guess, the more points they get, and a leaderboard runs all game.</p></div>
+      ${aud.status === "error" ? `<p class="error">${esc(aud.error)}</p>` : ""}
+      <button class="btn big gold" data-action="audOn">Turn on play-along</button>
+    </div>`;
+  }
+  const rows = audStandings();
+  const url = aud.code ? joinUrl() : "";
+  return `<div class="aud-card on">
+    <div class="aud-qr">${aud.code && aud.status !== "connecting" ? qrSvg(url) : ""}</div>
+    <div class="aud-info">
+      <h3>📱 Audience play-along <span class="aud-dot ${aud.status}">${audStatusText()}</span></h3>
+      ${
+        aud.code
+          ? `<p class="aud-code">Room <strong>${esc(aud.code)}</strong></p><p class="small">${esc(shortUrl())}</p>`
+          : `<p class="small">Opening a room…</p>`
+      }
+      ${aud.status === "error" ? `<p class="error">${esc(aud.error)}</p>` : ""}
+      <p class="aud-names">${rows.length ? `${rows.length} joined: ${rows.map((r) => esc(r.name)).join(", ")}` : "Nobody's joined yet. The QR code is on the TV too."}</p>
+      <div class="row small-row">
+        <button class="btn ghost" data-action="audReset" ${rows.some((r) => r.pts) ? "" : "disabled"}>Reset scores</button>
+        <button class="btn ghost" data-action="audNewRoom">New room code</button>
+        <button class="btn ghost" data-action="audOff">Turn off</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Host: the little status box beside the game controls.
+function hostAudienceBox() {
+  if (!aud.on) return "";
+  const pz = audiencePuzzle();
+  const st = pz ? puzzleStats(pz.pid) : null;
+  const n = Object.keys(aud.players).length;
+  return `<div class="aud-box">
+    <div><span class="aud-dot ${aud.status}"></span> 📱 Room <strong>${esc(aud.code || "…")}</strong> · ${n} playing${n && activeCount() < n ? ` (${activeCount()} here now)` : ""}</div>
+    ${st && pz?.open !== undefined ? `<div class="small">${st.locked} locked in${st.locked ? ` · ${st.right} right` : ""}${st.fastest ? ` · fastest ${esc(st.fastest.name)} ${st.fastest.pts}` : ""}</div>` : ""}
+    <button class="btn ghost" data-action="audBoard">${tvSummary()?.board ? "Hide" : "Show"} leaderboard on TV (0)</button>
+  </div>`;
+}
+
+function hostAudienceResults() {
+  if (!aud.on) return "";
+  const rows = audStandings();
+  if (!rows.length) return "";
+  return `<div class="aud-final"><h3>📱 Play-along leaderboard</h3><ol>${rows
+    .slice(0, 10)
+    .map((r) => `<li><span>${r.rank}. ${esc(r.name)}</span><strong>${r.pts.toLocaleString("en-US")}</strong></li>`)
+    .join("")}</ol></div>`;
+}
+
+// TV: the join card on the title screen.
+function tvJoinCard() {
+  const a = audView;
+  if (!a || !a.code || a.status === "connecting" || a.status === "error") return "";
+  return `<div class="tv-join">
+    ${qrSvg(a.joinUrl)}
+    <div class="tv-join-text">
+      <strong>Play along on your phone</strong>
+      <span>${esc(a.url)}</span>
+      <span>Room code <b>${esc(a.code)}</b></span>
+      ${a.count ? `<em>${a.count} playing</em>` : ""}
+    </div>
+  </div>`;
+}
+
+const tvJoinChip = () => (audView?.code ? `<span class="chip join">📱 Play along · <b>${esc(audView.code)}</b></span>` : "");
+
+function lbRows(top, n) {
+  return top
+    .slice(0, n)
+    .map((r) => `<li><span class="lb-rank">${r.rank}</span><span class="lb-name">${esc(r.name)}</span><strong>${r.pts.toLocaleString("en-US")}</strong></li>`)
+    .join("");
+}
+
+// TV: the leaderboard that comes up after a puzzle is solved.
+function tvLeaderboard() {
+  const a = audView;
+  if (!a?.board || !a.top.length) return "";
+  const st = a.stats;
+  return `<div class="lb-overlay"><div class="lb-card">
+    <h2>Play-Along Leaderboard</h2>
+    ${
+      st
+        ? `<p class="lb-stat">${st.right} of ${st.locked} got this one${st.fastest ? ` · Fastest: <b>${esc(st.fastest.name)}</b> +${st.fastest.pts}` : ""}</p>`
+        : ""
+    }
+    <ol class="lb">${lbRows(a.top, 5)}</ol>
+    <p class="lb-join">Join in: ${esc(a.url)} · code <b>${esc(a.code)}</b></p>
+  </div></div>`;
+}
+
+function tvAudienceFinal() {
+  const a = audView;
+  if (!a?.top?.length) return "";
+  return `<div class="tv-aud-final"><h2>Play-Along</h2><ol class="lb">${lbRows(a.top, 8)}</ol></div>`;
 }
 
 // ---- Host ----------------------------------------------------------------
@@ -1550,6 +1765,7 @@ function hostSetup() {
       <button class="btn ghost" data-action="backToEpisodes">← Episodes</button>
       <button class="btn big gold" data-action="startGame">Start the game →</button>
     </div>
+    ${hostAudienceSetup()}
     <div class="run">
       <h3>Running order</h3>
       <ol>${state.segs.map((s) => `<li>${esc(segName(s))}${s.speedUp ? " · Final Spin" : ""} — <em>${esc(s.category)}</em></li>`).join("")}${
@@ -1583,6 +1799,7 @@ function hostGame() {
     <aside class="host-right">
       ${p.kind === "round" ? `<div class="mini" id="wheel-slot"></div>` : ""}
       <div class="panel">${p.kind === "tossup" ? tossupPanel(p) : roundPanel(p)}</div>
+      ${hostAudienceBox()}
     </aside>
   </main>
   ${podiums({ host: true })}`;
@@ -1703,6 +1920,7 @@ function hostResults() {
       )
       .join("")}</ol>
     ${state.game.bonus ? `<button class="btn big gold" data-action="bonus">Bonus Round (Space)</button>` : `<button class="btn" data-action="playAgain">Play again</button>`}
+    ${hostAudienceResults()}
   </main>`;
 }
 
@@ -1767,6 +1985,7 @@ function hostBonus() {
     <aside class="host-right">
       <div class="mini" id="wheel-slot"></div>
       <div class="panel"><p class="who c-${TEAM_COLORS[t].key}">${esc(teamName(t))}</p>${panel}</div>
+      ${hostAudienceBox()}
     </aside>
   </main>`;
 }
@@ -1786,6 +2005,7 @@ function tvTitle() {
     <h1 class="title">Wheel of Fortune</h1>
     ${state.game ? `<p class="sub">${esc(state.game.title || "")}</p>` : ""}
     ${state.screen === "setup" ? podiums({ showRound: false }) : ""}
+    ${tvJoinCard()}
   </main>`;
 }
 
@@ -1799,7 +2019,7 @@ function tvHead() {
   else if (p.phase === "call" || p.wildArmed) right = `<span class="chip c-${TEAM_COLORS[p.control].key}">${esc(landedLabel(p))}</span>`;
   else if (p.phase === "speedClock") right = `<span class="chip gold clock" data-ends="${p.clockEnds}">${clockLeft(p.clockEnds)}</span>`;
   const prize = seg.prize && p.kind === "round" ? `<span class="chip prize">Prize Puzzle</span>` : "";
-  return `<div class="tv-head"><span class="seg">${esc(segName(seg))}${p.speed && !seg.speedUp ? " · Final Spin" : ""}</span>${prize}<span class="grow"></span>${right}</div>`;
+  return `<div class="tv-head"><span class="seg">${esc(segName(seg))}${p.speed && !seg.speedUp ? " · Final Spin" : ""}</span>${prize}<span class="grow"></span>${tvJoinChip()}${right}</div>`;
 }
 
 function tvGame() {
@@ -1822,17 +2042,22 @@ function tvGame() {
       <div class="cam flat main"><div id="wheel-slot" class="cam-wheel"></div></div>
       ${p.landed && !p.spin ? `<div class="tv-landed">${esc(landedLabel(p) || "")}</div>` : ""}
     </div>
+    ${tvLeaderboard()}
   </main>`;
 }
 
 function tvResults() {
   const lead = leaderIndex();
-  return `<main class="tv tv-results">
-    <h1 class="title small">Final Scores</h1>
-    <ol class="stand big">${standings()
-      .map((s) => `<li class="c-${TEAM_COLORS[s.i].key}${s.i === lead ? " lead" : ""}"><span>${esc(teamName(s.i))}</span><strong>${money(s.final)}</strong></li>`)
-      .join("")}</ol>
-    <p class="sub">${esc(teamName(lead))} play the Bonus Round</p>
+  const audFinal = tvAudienceFinal();
+  return `<main class="tv tv-results${audFinal ? " with-aud" : ""}">
+    <div class="tv-results-teams">
+      <h1 class="title small">Final Scores</h1>
+      <ol class="stand big">${standings()
+        .map((s) => `<li class="c-${TEAM_COLORS[s.i].key}${s.i === lead ? " lead" : ""}"><span>${esc(teamName(s.i))}</span><strong>${money(s.final)}</strong></li>`)
+        .join("")}</ol>
+      <p class="sub">${esc(teamName(lead))} play the Bonus Round</p>
+    </div>
+    ${audFinal}
   </main>`;
 }
 
@@ -1848,7 +2073,7 @@ function tvBonus() {
         ? `<span class="chip picks">${["R", "S", "T", "L", "N", "E"].join(" ")}${b.picks.length ? " + " + b.picks.join(" ") : ""}</span>`
         : "";
   return `<main class="tv tv-game tv-bonus">
-    <div class="tv-head"><span class="seg">Bonus Round · <span class="c-text-${TEAM_COLORS[t].key}">${esc(teamName(t))}</span></span><span class="grow"></span>${right}</div>
+    <div class="tv-head"><span class="seg">Bonus Round · <span class="c-text-${TEAM_COLORS[t].key}">${esc(teamName(t))}</span></span><span class="grow"></span>${tvJoinChip()}${right}</div>
     ${
       board
         ? `<div class="tv-board">${boardHtml(b.cells, { tile: tileState(b), justShown: new Set(fx.justShown), wave: fx.wave })}</div><div class="tv-cat">${esc(b.category)}</div>`
@@ -1860,6 +2085,7 @@ function tvBonus() {
       <div class="tv-wheel-label">Spin for an envelope</div>
       <div class="cam flat"><div id="wheel-slot" class="cam-wheel"></div></div>
     </div>
+    ${tvLeaderboard()}
   </main>`;
 }
 
@@ -1922,6 +2148,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     return bonusUnpick();
   }
+  if (e.key === "0" && aud.on) return toggleLeaderboard();
   if (/^[1-4]$/.test(e.key) && state.cur?.kind === "tossup") return ringIn(Number(e.key) - 1);
   if (/^[a-zA-Z]$/.test(e.key) && (state.screen === "game" || state.screen === "bonus")) return callLetter(e.key.toUpperCase());
 });
@@ -1944,6 +2171,7 @@ function listen() {
       if (m.type === "state") {
         state = m.state;
         fx = m.fx || fx;
+        audView = m.aud || null;
         render();
       } else if (m.type === "sound") {
         if (soundUnlocked) playSound(m.name);
@@ -1976,6 +2204,8 @@ async function init() {
     return;
   }
   document.title = "Wheel of Fortune · Host";
+  // Play-along picks up where it left off after a refresh, with the same room code.
+  if (loadAudience()) startAudience();
   let was = false;
   setInterval(() => {
     if (boardOpen() !== was) {
