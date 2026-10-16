@@ -17,7 +17,7 @@ Episode 1 runs like a current episode of the show:
    - Solving banks the round's money, at least $1,000. Everyone else's round money is gone.
 3. **Round 3, the Mystery Round.** Two Mystery wedges are worth $1,000 a consonant. After a right letter on one, the team keeps the money or gives it up to flip the wedge: one side is $10,000, the other Bankrupt. Once one is flipped, the other is just $1,000.
 4. **Round 4, the Prize Puzzle,** with the **Express** wedge: $1,000 per consonant, and then the team can hop on. Riding the Express means no more spinning — consonants are $1,000 each and vowels $250 — but any miss or wrong solve is Bankrupt. Solving the puzzle also wins the prize written in the episode file.
-5. **Quadruple Toss-Up.** Four toss-ups in a row from one category, $2,000 each. The four puzzles go together — in Episode 1 they're the four lines of one rhyme — so once a team spots the pattern, the later ones can be solved from the blank spaces alone. Winning the fourth starts Round 5. A team that wins all four gets $4,000 more.
+5. **Triple Toss-Up.** Three toss-ups in a row from one category, $2,000 each. The three puzzles go together — in Episode 1 they're the three little pigs' houses — so once a team spots the pattern, the later ones can be solved from the blank spaces alone. Winning the third starts Round 5. A team that wins all three gets $4,000 more.
 6. **Round 5,** with the $5,000 wedge.
 7. **Final Spin.** In Round 6 it starts right away; in Round 5 you can call it any time with **⏱ Final Spin** when the night is running long, like the time chime on the show. The team in control spins once (Bankrupt or Lose a Turn just spins again). The wedge plus $1,000 is what every consonant is worth for the rest of the puzzle, and vowels are free. Teams take turns calling one letter each; after a right letter they get 5 seconds to solve. The game ends when it's solved.
 8. **Bonus Round.** The leader picks one of three categories and spins the envelope wheel; the envelope stays sealed. R S T L N E go up, the team calls three more consonants and a vowel (a fourth consonant if they kept the Wild Card), type them, press **Space** to show them, and **Space** again starts the 10-second clock. **Enter** if they solve it. Then open the envelope. If they kept the Million Dollar Wedge, one envelope on the bonus wheel is $1,000,000.
@@ -65,12 +65,12 @@ Each episode is a file in `games/`. Edit one on github.com with the pencil icon 
   "rounds": [
     { "type": "tossup", "value": 1000, "category": "Phrase", "puzzle": "BETTER LATE THAN NEVER" },
     { "type": "tossup", "value": 2000, "category": "Food & Drink", "puzzle": "PEANUT BUTTER COOKIES" },
-    { "type": "tossup", "value": 3000, "category": "Fun & Games", "puzzle": "A GAME OF HIDE AND SEEK", "decidesStart": true },
+    { "type": "tossup", "value": 3000, "category": "Fun & Games", "puzzle": "CHUTES AND LADDERS", "decidesStart": true },
     { "type": "round", "wheel": 1, "category": "Before & After", "puzzle": "HOT DOG DAYS OF SUMMER" },
     { "type": "round", "wheel": 1, "top": 3500, "category": "Around the House", "puzzle": "A JUNK DRAWER FULL OF ODDS AND ENDS" },
     { "type": "round", "wheel": 2, "category": "What Are You Doing?", "puzzle": "SINGING IN THE SHOWER" },
     { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
-    { "type": "quadruple", "value": 2000, "category": "Phrase", "puzzles": ["ONE FOR / THE MONEY", "TWO FOR / THE SHOW", "THREE TO / GET READY", "AND FOUR / TO GO"] },
+    { "type": "triple", "value": 2000, "category": "Things", "puzzles": ["A HOUSE / OF STRAW", "A HOUSE / OF STICKS", "A HOUSE / OF BRICKS"] },
     { "type": "round", "wheel": 4, "category": "Rhyme Time", "puzzle": "SNUG AS A BUG / IN A RUG" },
     { "type": "round", "wheel": 4, "category": "Event", "puzzle": "A SURPRISE BIRTHDAY PARTY", "speedUp": true }
   ],
