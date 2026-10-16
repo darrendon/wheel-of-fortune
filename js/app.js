@@ -25,14 +25,14 @@ const TEAM_COLORS = [
   { key: "blue", name: "Blue", hex: "#1f6fe0" },
   { key: "purple", name: "Purple", hex: "#8a3fd1" },
 ];
-// Where each team's arrow points at the wheel (degrees, 0 = top, clockwise).
-const POINTERS = [150, 170, 190, 210];
+// The wheel has one arrow, at the top (degrees, 0 = top, clockwise).
+const POINTER = 0;
 
 const VOWEL_COST = 250;
 const SOLVE_MINIMUM = 1000; // solving a round always banks at least this
 const CONSOLATION = 1000; // a team that never solved anything goes home with this
 const SPEED_BONUS = 1000; // the Final Spin adds this to every consonant
-const SPEED_SECONDS = 3;
+const SPEED_SECONDS = 5;
 const MYSTERY_PRIZE = 10000;
 const EXPRESS_VALUE = 1000;
 const TOSSUP_EVERY = 1100; // ms between toss-up letters
@@ -225,8 +225,10 @@ function expand(game) {
     if (r.type === "tossup") {
       checkPuzzle(r.puzzle, where);
       segs.push({ kind: "tossup", value: Number(r.value) || 1000, category: r.category || "", puzzle: r.puzzle, decides: Boolean(r.decidesStart) });
-    } else if (r.type === "triple") {
-      if (!Array.isArray(r.puzzles) || r.puzzles.length !== 3) throw new Error(`${where}: a Triple Toss-Up needs exactly 3 puzzles`);
+    } else if (r.type === "triple" || r.type === "quadruple") {
+      const n = r.type === "triple" ? 3 : 4;
+      if (!Array.isArray(r.puzzles) || r.puzzles.length !== n)
+        throw new Error(`${where}: a ${r.type === "triple" ? "Triple" : "Quadruple"} Toss-Up needs exactly ${n} puzzles`);
       r.puzzles.forEach((p, k) => {
         checkPuzzle(p, `${where}, puzzle ${k + 1}`);
         segs.push({
@@ -234,8 +236,8 @@ function expand(game) {
           value: Number(r.value) || 2000,
           category: r.category || "",
           puzzle: p,
-          triple: { i: k, sweep: Number(r.sweepBonus ?? 4000) },
-          decides: k === 2,
+          triple: { i: k, n, sweep: Number(r.sweepBonus ?? 4000) },
+          decides: k === n - 1,
         });
       });
     } else if (r.type === "round") {
@@ -243,6 +245,7 @@ function expand(game) {
       segs.push({
         kind: "round",
         wheel: Math.min(4, Math.max(1, Number(r.wheel) || 1)),
+        top: Number(r.top) || null,
         category: r.category || "",
         puzzle: r.puzzle,
         prize: r.prize || "",
@@ -250,7 +253,7 @@ function expand(game) {
         name: r.name || "",
       });
     } else {
-      throw new Error(`${where}: "type" should be "tossup", "triple" or "round"`);
+      throw new Error(`${where}: "type" should be "tossup", "triple", "quadruple" or "round"`);
     }
   });
   if (!segs.length) throw new Error('The game file has no "rounds"');
@@ -288,7 +291,7 @@ function segName(seg) {
   if (!seg) return "";
   if (seg.kind === "tossup") {
     if (seg.tiebreaker) return "Tiebreaker Toss-Up";
-    if (seg.triple) return `Triple Toss-Up · ${seg.triple.i + 1} of 3`;
+    if (seg.triple) return `${seg.triple.n === 4 ? "Quadruple" : "Triple"} Toss-Up · ${seg.triple.i + 1} of ${seg.triple.n}`;
     return `Toss-Up · ${money(seg.value)}`;
   }
   if (seg.name) return seg.name;
@@ -521,9 +524,11 @@ function tossupRight() {
   let note = `${teamName(t)} +${money(seg.value)}`;
   if (seg.triple) {
     state.tripleWins[seg.triple.i] = t;
-    if (seg.triple.i === 2 && state.tripleWins.length === 3 && state.tripleWins.every((w) => w === t) && seg.triple.sweep) {
+    const { n } = seg.triple;
+    const wins = state.tripleWins.slice(0, n);
+    if (seg.triple.i === n - 1 && wins.length === n && wins.every((w) => w === t) && seg.triple.sweep) {
       team.total += seg.triple.sweep;
-      note += ` · swept all three, +${money(seg.triple.sweep)}`;
+      note += ` · swept all ${n === 4 ? "four" : "three"}, +${money(seg.triple.sweep)}`;
     }
   }
   if (seg.decides || seg.tiebreaker || isSecondTossup(seg)) state.nextStarter = t;
@@ -576,7 +581,7 @@ function tossupNobody(already = false) {
 function currentWheel() {
   const p = state.cur;
   const kind = p?.kind === "round" ? p.seg.wheel : 1;
-  const w = buildWheel(kind, state.taken);
+  const w = buildWheel(kind, state.taken, p?.kind === "round" ? p.seg.top : null);
   if (p?.mysteryFlipped) for (const i of MYSTERY_WEDGES) w[i] = { kind: "cash", value: 1000 };
   return w;
 }
@@ -630,7 +635,7 @@ function land() {
   state.angle = ((end % 360) + 360) % 360;
   p.spin = null;
   const wheel = currentWheel();
-  const { index, frac } = wedgeAt(state.angle, POINTERS[p.control]);
+  const { index, frac } = wedgeAt(state.angle, POINTER);
   const w = wheel[index];
   const part = w.kind === "million" ? (frac > 1 / 3 && frac < 2 / 3 ? "million" : "bankrupt") : null;
   p.landed = { index, part, kind: part === "bankrupt" ? "bankrupt" : w.kind, value: w.value || 0, wild: Boolean(w.wild) };
@@ -1350,7 +1355,7 @@ function wheelElement() {
   const bonusMode = state.screen === "bonus";
   const key = bonusMode
     ? `bonus-${state.bonus?.million}`
-    : `${state.cur?.kind === "round" ? state.cur.seg.wheel : 1}-${JSON.stringify(state.taken)}-${state.cur?.mysteryFlipped}-${state.cur?.control}`;
+    : `${state.cur?.kind === "round" ? `${state.cur.seg.wheel}-${state.cur.seg.top}` : 1}-${JSON.stringify(state.taken)}-${state.cur?.mysteryFlipped}-${state.cur?.control}`;
   if (!wheelHolder) {
     wheelHolder = document.createElement("div");
     wheelHolder.className = "wheel-holder";
@@ -1362,7 +1367,7 @@ function wheelElement() {
       wheelHolder.innerHTML = bonusWheelSvg(24, { million: state.bonus?.million, millionSlot: millionSlot(list) });
     } else {
       const control = state.cur?.kind === "round" ? state.cur.control : -1;
-      const pointers = POINTERS.map((deg, i) => ({ deg, color: TEAM_COLORS[i].hex, active: i === control }));
+      const pointers = [{ deg: POINTER, color: control >= 0 ? TEAM_COLORS[control].hex : "#e5322d", active: true }];
       wheelHolder.innerHTML = wheelSvg(currentWheel(), { pointers });
     }
   }
@@ -1389,7 +1394,7 @@ function startSpinAnim() {
   if (!s || animatingSpin === s.startedAt) return;
   stopSpinAnim?.();
   animatingSpin = s.startedAt;
-  const pointerDeg = bonusMode ? 0 : POINTERS[state.cur.control];
+  const pointerDeg = bonusMode ? 0 : POINTER;
   const sounding = IS_BOARD ? soundUnlocked : !boardOpen();
   stopSpinAnim = animateSpin(() => wheelHolder?.querySelector(".rotor"), s, {
     pointerDeg,
@@ -1593,7 +1598,7 @@ function tossupPanel(p) {
     .join("");
   let body = "";
   if (p.phase === "ready")
-    body = `<p>${seg.triple ? "Three toss-ups in a row, same category. " : ""}${seg.only ? "Only the tied teams can ring in. " : ""}Letters fill in at random until a team rings in.</p>
+    body = `<p>${seg.triple ? `${seg.triple.n === 4 ? "Four" : "Three"} related toss-ups in a row, same category. ` : ""}${seg.only ? "Only the tied teams can ring in. " : ""}Letters fill in at random until a team rings in.</p>
     <button class="btn big gold" data-action="tossupStart">Start (Space)</button>`;
   else if (p.phase === "running") body = `<p>Filling in… press a team's number when they ring in.</p><button class="btn" data-action="tossupPause">Pause (Space)</button>`;
   else if (p.phase === "paused") body = `<p>Paused.</p><button class="btn big gold" data-action="tossupStart">Resume (Space)</button>`;
@@ -1814,7 +1819,7 @@ function tvGame() {
     ${podiums()}
     <div class="tv-wheel${state.tvWheel ? " on" : ""}">
       <div class="tv-wheel-label">${p.kind === "round" ? `<span class="c-text-${TEAM_COLORS[p.control].key}">${esc(teamName(p.control))}</span>${spinner(p.control) ? ` · ${esc(spinner(p.control))}` : ""}` : ""}</div>
-      <div class="cam"><div id="wheel-slot" class="cam-wheel"></div></div>
+      <div class="cam flat main"><div id="wheel-slot" class="cam-wheel"></div></div>
       ${p.landed && !p.spin ? `<div class="tv-landed">${esc(landedLabel(p) || "")}</div>` : ""}
     </div>
   </main>`;

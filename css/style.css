@@ -943,7 +943,7 @@ body.is-board {
 }
 .tv-landed {
   position: absolute;
-  top: 11vh;
+  bottom: 3vh;
   left: 50%;
   transform: translateX(-50%);
   font-family: "Oswald", sans-serif;
@@ -1142,4 +1142,12 @@ body:not(.is-board) .flash {
   min-width: 9vw;
   text-align: center;
   line-height: 1.1;
+}
+
+/* the main wheel, face-on with its one arrow at the top */
+.cam.flat.main .cam-wheel {
+  width: 78vh;
+  height: 78vh;
+  left: -39vh;
+  top: -38vh;
 }

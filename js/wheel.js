@@ -30,11 +30,12 @@ const TOP_VALUE = { 1: 2500, 2: 3500, 3: 3500, 4: 5000 };
 
 // Build the wheel for a round. kind: 1 | 2 (Mystery) | 3 (Express) | 4 (Round 4 and later).
 // taken: which specials have already been picked up ({ wild, gift, million }).
-export function buildWheel(kind, taken = {}) {
+// top: an optional value for the top-dollar wedge, to override the round's usual one.
+export function buildWheel(kind, taken = {}, top = null) {
   const k = Math.min(Math.max(Number(kind) || 1, 1), 4);
   const early = k <= 3;
   return BASE.map((v, i) => {
-    if (v === "TOP") return { kind: "cash", value: TOP_VALUE[k], top: true };
+    if (v === "TOP") return { kind: "cash", value: top || TOP_VALUE[k], top: true };
     if (v === "BANKRUPT") return { kind: "bankrupt" };
     if (v === "LOSE A TURN") return { kind: "loseTurn" };
     if (v === "MILLION") {
@@ -177,7 +178,7 @@ export function wheelSvg(wheel, { pointers = [], id = "w" } = {}) {
   const ptrs = pointers
     .map((p) => {
       const [x, y] = polar(p.deg, R + 4);
-      return `<g class="ptr${p.active ? " on" : ""}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${p.deg})"><path d="M0 18 L-17 -34 L17 -34 Z" fill="${p.color}" stroke="#fff" stroke-width="3"/></g>`;
+      return `<g class="ptr${p.active ? " on" : ""}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${p.deg})"><path d="M0 30 L-26 -36 L26 -36 Z" fill="${p.color}" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></g>`;
     })
     .join("");
   return `<svg class="wheel-svg" viewBox="-520 -520 1040 1040" aria-hidden="true">
