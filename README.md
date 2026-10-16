@@ -64,7 +64,7 @@ Each episode is a file in `games/`. Edit one on github.com with the pencil icon 
   "giftPrize": "A mystery gift",
   "rounds": [
     { "type": "tossup", "value": 1000, "category": "Phrase", "puzzle": "BETTER LATE THAN NEVER" },
-    { "type": "tossup", "value": 2000, "category": "Food & Drink", "puzzle": "PEANUT BUTTER COOKIES" },
+    { "type": "tossup", "value": 2000, "category": "Living Thing", "puzzle": "A LITTER OF PUPPIES" },
     { "type": "tossup", "value": 3000, "category": "Fun & Games", "puzzle": "CHUTES AND LADDERS", "decidesStart": true },
     { "type": "round", "wheel": 1, "category": "Before & After", "puzzle": "HOT DOG DAYS OF SUMMER" },
     { "type": "round", "wheel": 1, "top": 3500, "category": "Around the House", "puzzle": "A JUNK DRAWER FULL OF ODDS AND ENDS" },
