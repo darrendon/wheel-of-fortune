@@ -7,8 +7,8 @@
     { "type": "tossup", "value": 3000, "category": "Fun & Games", "puzzle": "CHUTES AND LADDERS", "decidesStart": true },
     { "type": "round", "wheel": 1, "category": "Before & After", "puzzle": "HOT DOG DAYS OF SUMMER" },
     { "type": "round", "wheel": 2, "category": "What Are You Doing?", "puzzle": "SINGING IN THE SHOWER" },
-    { "type": "triple", "value": 2000, "category": "Food & Drink", "puzzles": ["BREAKFAST / IN BED", "LUNCH ON / THE GO", "DINNER AND / A MOVIE"] },
     { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
+    { "type": "triple", "value": 2000, "category": "Food & Drink", "puzzles": ["BREAKFAST / IN BED", "LUNCH ON / THE GO", "DINNER AND / A MOVIE"] },
     { "type": "round", "wheel": 4, "category": "Rhyme Time", "puzzle": "SNUG AS A BUG / IN A RUG" },
     { "type": "round", "wheel": 4, "category": "Event", "puzzle": "A SURPRISE BIRTHDAY PARTY", "speedUp": true }
   ],
