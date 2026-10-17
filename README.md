@@ -9,17 +9,17 @@ The site republishes itself on GitHub Pages whenever you change a file on the `m
 Episode 1 runs like a current episode of the show:
 
 1. **Toss-Ups, $1,000, $2,000 and $3,000.** Press **Space** and letters fill in at random. The first team to ring in (slap the table) gets one guess: press their number, **1–4**, then **Enter** if they're right or **Esc** if not. A team that misses is locked out and the letters keep coming. If the board is down to one letter and nobody has it, nobody wins it. Toss-up money is banked straight away. Whoever wins the $3,000 toss-up spins first in Round 1. After that, the team to the left of the last round's starter spins first, so in Rounds 1–4 every team starts one.
-2. **Rounds 1 and 2** ($2,500 top wedge, then $3,500). The team in control spins, buys a vowel, or solves.
+2. **Round 1** ($2,500 top wedge). The team in control spins, buys a vowel, or solves.
    - **Spin** (**Space**). The wheel spins with a random pull and stops under the arrow at the top, which takes the color of the team that spun. Type the consonant they call. Each one in the puzzle is worth the wedge they landed on. A letter that isn't there, or was already called, passes play to the next team.
    - **Buy a vowel** for $250 by typing it (they need $250 in the round).
    - **Solve:** **Enter** if they got it, **Esc** or **Wrong solve** if not.
    - **Bankrupt** wipes out the round's money (and the Wild Card, and an unsolved prize or Million Dollar Wedge). **Lose a Turn** passes play.
    - Solving banks the round's money, at least $1,000. Everyone else's round money is gone.
-3. **Round 3, the Mystery Round.** Two Mystery wedges are worth $1,000 a consonant. After a right letter on one, the team keeps the money or gives it up to flip the wedge: one side is $10,000, the other Bankrupt. Once one is flipped, the other is just $1,000.
-4. **Round 4, the Prize Puzzle,** with the **Express** wedge: $1,000 per consonant, and then the team can hop on. Riding the Express means no more spinning — consonants are $1,000 each and vowels $250 — but any miss or wrong solve is Bankrupt. Solving the puzzle also wins the prize written in the episode file.
-5. **Triple Toss-Up.** Three toss-ups in a row from one category, $2,000 each. The three puzzles go together — in Episode 1 they're breakfast, lunch and dinner — so once a team spots the pattern, the later ones can be solved from the blank spaces alone. Winning the third starts Round 5. A team that wins all three gets $4,000 more.
-6. **Round 5,** with the $5,000 wedge.
-7. **Final Spin.** In Round 6 it starts right away; in Round 5 you can call it any time with **⏱ Final Spin** when the night is running long, like the time chime on the show. The team in control spins once (Bankrupt or Lose a Turn just spins again). The wedge plus $1,000 is what every consonant is worth for the rest of the puzzle, and vowels are free. Teams take turns calling one letter each; after a right letter they get 5 seconds to solve. The game ends when it's solved.
+3. **Round 2, the Mystery Round.** Two Mystery wedges are worth $1,000 a consonant. After a right letter on one, the team keeps the money or gives it up to flip the wedge: one side is $10,000, the other Bankrupt. Once one is flipped, the other is just $1,000.
+4. **Triple Toss-Up.** Three toss-ups in a row from one category, $2,000 each, played right before the Prize Puzzle as on the show. The three puzzles go together — in Episode 1 they're breakfast, lunch and dinner — so once a team spots the pattern, the later ones can be solved from the blank spaces alone. Winning the third starts Round 3. A team that wins all three gets $4,000 more.
+5. **Round 3, the Prize Puzzle,** with the **Express** wedge: $1,000 per consonant, and then the team can hop on. Riding the Express means no more spinning — consonants are $1,000 each and vowels $250 — but any miss or wrong solve is Bankrupt. Solving the puzzle also wins the prize written in the episode file.
+6. **Round 4,** with the $5,000 wedge.
+7. **Final Spin.** In Round 5 it starts right away; in Round 4 you can call it any time with **⏱ Final Spin** when the night is running long, like the time chime on the show. The team in control spins once (Bankrupt or Lose a Turn just spins again). The wedge plus $1,000 is what every consonant is worth for the rest of the puzzle, and vowels are free. Teams take turns calling one letter each; after a right letter they get 5 seconds to solve. The game ends when it's solved.
 8. **Bonus Round.** The leader picks one of three categories and spins the envelope wheel; the envelope stays sealed. R S T L N E go up, the team calls three more consonants and a vowel (a fourth consonant if they kept the Wild Card), type them, press **Space** to show them, and **Space** again starts the 10-second clock. **Enter** if they solve it. Then open the envelope. If they kept the Million Dollar Wedge, one envelope on the bonus wheel is $1,000,000.
 
 If the top teams are tied at the end, a tiebreaker toss-up decides it.
@@ -85,10 +85,9 @@ Each episode is a file in `games/`. Edit one on github.com with the pencil icon 
     { "type": "tossup", "value": 2000, "category": "Living Thing", "puzzle": "A LITTER OF PUPPIES" },
     { "type": "tossup", "value": 3000, "category": "Fun & Games", "puzzle": "CHUTES AND LADDERS", "decidesStart": true },
     { "type": "round", "wheel": 1, "category": "Before & After", "puzzle": "HOT DOG DAYS OF SUMMER" },
-    { "type": "round", "wheel": 1, "top": 3500, "category": "Around the House", "puzzle": "A JUNK DRAWER FULL OF ODDS AND ENDS" },
     { "type": "round", "wheel": 2, "category": "What Are You Doing?", "puzzle": "SINGING IN THE SHOWER" },
-    { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
     { "type": "triple", "value": 2000, "category": "Food & Drink", "puzzles": ["BREAKFAST / IN BED", "LUNCH ON / THE GO", "DINNER AND / A MOVIE"] },
+    { "type": "round", "wheel": 3, "category": "Place", "puzzle": "A CABIN IN THE MOUNTAINS", "prize": "A mountain cabin getaway" },
     { "type": "round", "wheel": 4, "category": "Rhyme Time", "puzzle": "SNUG AS A BUG / IN A RUG" },
     { "type": "round", "wheel": 4, "category": "Event", "puzzle": "A SURPRISE BIRTHDAY PARTY", "speedUp": true }
   ],
@@ -145,6 +144,7 @@ Every cue has a built-in sound — the letter ding, the buzzer, Bankrupt, the pe
 | `lose-turn.mp3` | Lose a Turn |
 | `peg.mp3` | Each peg the flapper hits during a spin |
 | `solve.mp3` | A puzzle is solved |
+| `tossup.mp3` | Toss-up music while the letters fill in (loops; pauses when a team rings in or you pause, resumes with the reveal). A built-in loop plays if this file is missing |
 | `tossup-letter.mp3` | A letter popping in during a toss-up |
 | `ring-in.mp3` | A team rings in |
 | `no-more.mp3` | "No more vowels" / "Only vowels remain" |

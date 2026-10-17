@@ -1,4 +1,15 @@
-import { playSound, stopMusic, toggleMute, setMuted, isMuted, unlockAudio, checkSoundFiles } from "./sounds.js?v=__V__";
+import {
+  playSound,
+  stopMusic,
+  pauseMusic,
+  resumeMusic,
+  musicStatus,
+  toggleMute,
+  setMuted,
+  isMuted,
+  unlockAudio,
+  checkSoundFiles,
+} from "./sounds.js?v=__V__";
 import { layout, boardHtml, isLetter, VOWELS, plainAnswer } from "./board.js?v=__V__";
 import {
   aud,
@@ -74,12 +85,16 @@ const send = (msg) => channel?.postMessage(msg);
 let boardSeenAt = 0;
 const boardOpen = () => !IS_BOARD && Date.now() - boardSeenAt < 6000;
 let musicNow = null;
+let musicHeld = false; // the music is paused (a toss-up stopped filling in)
 let soundUnlocked = false;
-const MUSIC = new Set(["theme", "bonusMusic"]);
+const MUSIC = new Set(["theme", "bonusMusic", "tossupMusic"]);
 
 function cue(name) {
   if (IS_BOARD) return;
-  if (MUSIC.has(name)) musicNow = name;
+  if (MUSIC.has(name)) {
+    musicNow = name;
+    musicHeld = false;
+  }
   send({ type: "sound", name });
   if (!boardOpen()) playSound(name);
 }
@@ -87,8 +102,47 @@ function cue(name) {
 function cueStop() {
   if (IS_BOARD) return;
   musicNow = null;
+  musicHeld = false;
   send({ type: "stopMusic" });
   stopMusic();
+}
+
+function cuePause() {
+  if (IS_BOARD || !musicNow) return;
+  musicHeld = true;
+  send({ type: "pauseMusic" });
+  pauseMusic();
+}
+
+function cueResume() {
+  if (IS_BOARD || !musicNow) return;
+  musicHeld = false;
+  send({ type: "resumeMusic" });
+  if (!boardOpen()) resumeMusic();
+}
+
+// Toss-up music plays while the letters are filling in, holds where it is when the reveal
+// stops (a team rings in, or the host pauses), picks up again when it restarts, and ends
+// with the puzzle. It follows the game state, so undo and resume keep it right too.
+let tossupMusic = "off"; // off | playing | paused
+function syncTossupMusic() {
+  if (IS_BOARD) return;
+  const p = state.cur;
+  const live = state.screen === "game" && p?.kind === "tossup" && ["running", "paused", "buzzed"].includes(p.phase);
+  const want = !live ? "off" : p.phase === "running" ? "playing" : "paused";
+  if (want === tossupMusic) return;
+  if (want === "off") {
+    if (musicNow === "tossupMusic") cueStop();
+  } else if (want === "playing") {
+    if (tossupMusic === "paused" && musicNow === "tossupMusic") cueResume();
+    else cue("tossupMusic");
+  } else if (tossupMusic === "playing") {
+    cuePause();
+  } else {
+    // Paused before the music ever started (say, a ring-in before the first letter): stay quiet.
+    return;
+  }
+  tossupMusic = want;
 }
 
 // ---------------------------------------------------------------------------
@@ -645,6 +699,18 @@ function landNow() {
   land();
 }
 
+// After a spin lands, the TV holds on the wheel for a moment and then cuts back to the
+// board — unless someone has spun again in the meantime (after a Bankrupt or Lose a Turn
+// the next team can spin right away). Without that check, the last spin's cut-away fired
+// in the middle of the new spin and the wheel vanished from the TV while it was turning.
+function cutAwayFromWheel(stillLanded, ms = 1700) {
+  later(ms, () => {
+    if (!stillLanded()) return;
+    state.tvWheel = false;
+    render();
+  });
+}
+
 function land() {
   const p = state.cur;
   if (!p?.spin || !["spinning", "finalSpinning"].includes(p.phase)) return;
@@ -657,10 +723,7 @@ function land() {
   const w = wheel[index];
   const part = w.kind === "million" ? (frac > 1 / 3 && frac < 2 / 3 ? "million" : "bankrupt") : null;
   p.landed = { index, part, kind: part === "bankrupt" ? "bankrupt" : w.kind, value: w.value || 0, wild: Boolean(w.wild) };
-  later(1700, () => {
-    state.tvWheel = false;
-    render();
-  });
+  cutAwayFromWheel(() => state.cur === p && !p.spin);
 
   if (final) {
     if (p.landed.kind === "bankrupt" || p.landed.kind === "loseTurn") {
@@ -1133,10 +1196,7 @@ function bonusLand() {
   b.spin = null;
   b.envelope = wedgeAt(b.angle, 0, 24).index;
   b.phase = "rstlne";
-  later(1800, () => {
-    state.tvWheel = false;
-    render();
-  });
+  cutAwayFromWheel(() => state.bonus === b && !b.spin, 1800);
   render();
 }
 
@@ -1319,6 +1379,12 @@ const actions = {
   toggleMute: () => {
     toggleMute();
     send({ type: "mute", muted: isMuted() });
+    // Muting stops the music; start the toss-up music over if it should be playing.
+    if (musicNow === "tossupMusic") {
+      musicNow = null;
+      musicHeld = false;
+    }
+    tossupMusic = "off";
     render();
   },
   openBoard: () => window.open(`${location.pathname}?view=board`, "wheel-board"),
@@ -1447,6 +1513,7 @@ function render() {
   placeWheel();
   showFlash(fx.flash);
   if (!IS_BOARD) {
+    syncTossupMusic();
     syncPuzzle(audiencePuzzle());
     send({ type: "state", state, fx, aud: tvSummary() });
   }
@@ -2176,7 +2243,10 @@ function listen() {
       } else if (m.type === "sound") {
         if (soundUnlocked) playSound(m.name);
       } else if (m.type === "stopMusic") stopMusic();
-      else if (m.type === "mute") setMuted(m.muted);
+      else if (m.type === "pauseMusic") pauseMusic();
+      else if (m.type === "resumeMusic") {
+        if (soundUnlocked) resumeMusic();
+      } else if (m.type === "mute") setMuted(m.muted);
       return;
     }
     if (m.type === "hello" || m.type === "ping") {
@@ -2186,6 +2256,7 @@ function listen() {
         stopMusic();
         send({ type: "mute", muted: isMuted() });
         if (musicNow) send({ type: "sound", name: musicNow });
+        if (musicNow && musicHeld) send({ type: "pauseMusic" });
         render();
       }
     }
@@ -2233,5 +2304,6 @@ async function init() {
 
 // For poking at a game from the browser console.
 window.wheelState = () => state;
+window.wheelMusic = () => ({ ...musicStatus(), cue: musicNow, held: musicHeld, tossup: tossupMusic });
 
 init();

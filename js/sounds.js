@@ -1,12 +1,14 @@
 // Sound cues. Every cue has a built-in sound made in the browser, so the game sounds
 // right with an empty sounds/ folder. To use your own audio instead, drop a file into
 // sounds/ with the name below (or change the name here); the file plays in place of the
-// built-in sound. Music cues only play if you add a file for them.
+// built-in sound. The theme and bonus music only play if you add a file for them; the
+// toss-up music has a built-in loop too.
 
 const SOUND_FILES = {
   // Music (loops)
   theme: "theme.mp3", // title screen and team setup
   bonusMusic: "bonus.mp3", // walking up to the Bonus Round
+  tossupMusic: "tossup.mp3", // while toss-up letters fill in; pauses when the reveal stops
 
   // Short cues
   ding: "ding.mp3", // one letter lights up on the board
@@ -27,10 +29,13 @@ const SOUND_FILES = {
   envelope: "envelope.mp3", // the Bonus Round envelope is opened
 };
 
-const MUSIC = new Set(["theme", "bonusMusic"]);
+const MUSIC = new Set(["theme", "bonusMusic", "tossupMusic"]);
+// Music with a built-in loop, used when there's no file for it.
+const MUSIC_SYNTH = new Set(["tossupMusic"]);
 
-let music = null;
+let music = null; // an <audio> element, or the built-in loop's controller
 let musicName = null;
+let musicPaused = false;
 let muted = false;
 let ctx = null;
 const missing = new Set();
@@ -69,7 +74,7 @@ export function playSound(name) {
 // whether to use your file or the built-in sound.
 export function checkSoundFiles() {
   for (const [name, file] of Object.entries(SOUND_FILES)) {
-    if (MUSIC.has(name) || checked.has(name)) continue;
+    if ((MUSIC.has(name) && !MUSIC_SYNTH.has(name)) || checked.has(name)) continue;
     checked.set(
       name,
       fetch(`sounds/${file}`, { method: "HEAD", cache: "no-cache" })
@@ -87,31 +92,97 @@ export function checkSoundFiles() {
 }
 
 function playMusic(name) {
-  if (musicName === name && music) return;
+  if (musicName === name && music) {
+    if (musicPaused) resumeMusic();
+    return;
+  }
   stopMusic();
   if (muted) return;
   const file = SOUND_FILES[name];
-  if (!file || missing.has(name)) return;
+  const hasSynth = MUSIC_SYNTH.has(name);
+  // Music with a built-in loop uses the file only once we know it's there.
+  if (!file || missing.has(name) || (hasSynth && !checked.has(name))) {
+    if (hasSynth) startSynthMusic(name);
+    return;
+  }
+  if (hasSynth) {
+    musicName = name;
+    musicPaused = false;
+    checked.get(name).then((ok) => {
+      if (musicName !== name || music) return; // stopped or replaced while we checked
+      if (ok) startFileMusic(name, file, hasSynth);
+      else startSynthMusic(name, musicPaused);
+    });
+    return;
+  }
+  startFileMusic(name, file, hasSynth);
+}
+
+function startFileMusic(name, file, hasSynth) {
   const audio = new Audio(`sounds/${file}`);
   audio.loop = true;
   audio.volume = 0.6;
   music = audio;
   musicName = name;
+  const paused = musicPaused;
   audio.addEventListener(
     "error",
     () => {
       missing.add(name);
-      if (music === audio) stopMusic();
+      if (music !== audio) return;
+      const wasPaused = musicPaused;
+      stopMusic();
+      if (hasSynth) startSynthMusic(name, wasPaused);
     },
     { once: true }
   );
-  audio.play().catch(() => {});
+  if (!paused) audio.play().catch(() => {});
+}
+
+function startSynthMusic(name, paused = false) {
+  let loop = null;
+  try {
+    loop = SYNTH_MUSIC[name]?.();
+  } catch {
+    /* no audio */
+  }
+  if (!loop) return;
+  music = loop;
+  musicName = name;
+  musicPaused = paused;
+  if (!paused) loop.play();
+}
+
+// Hold the music where it is (a toss-up stops filling in), and pick it up again later.
+export function pauseMusic() {
+  if (!musicName) return;
+  musicPaused = true;
+  music?.pause();
+}
+
+export function resumeMusic() {
+  if (!musicName || !musicPaused) return;
+  musicPaused = false;
+  if (muted) return;
+  if (music) music.play()?.catch?.(() => {});
 }
 
 export function stopMusic() {
-  if (music) music.pause();
+  if (music) {
+    music.pause();
+    music.stop?.();
+  }
   music = null;
   musicName = null;
+  musicPaused = false;
+}
+
+// What's playing, for checking from the console: { name, paused, source, running }.
+export function musicStatus() {
+  if (!musicName) return { name: null, paused: false, source: null, running: false };
+  const source = !music ? "pending" : music instanceof Audio ? "file" : "synth";
+  const running = source === "file" ? !music.paused : source === "synth" ? music.running() : false;
+  return { name: musicName, paused: musicPaused, source, running };
 }
 
 export function toggleMute() {
@@ -283,3 +354,131 @@ function synth(name) {
     /* no audio */
   }
 }
+
+// ---------------------------------------------------------------------------
+// Built-in music
+// ---------------------------------------------------------------------------
+
+// The toss-up bed: a driving, suspenseful synth loop — a pulsing minor-key bass under a
+// kick, ticking hi-hats and a climbing sixteenth-note arpeggio. Notes are scheduled a
+// moment ahead, so it can stop the instant a team rings in and pick up where it left off.
+function tossupLoop() {
+  const c = ac();
+  const BPM = 132;
+  const STEP = 60 / BPM / 4; // one sixteenth note
+  const STEPS = 64; // four bars, then it loops
+  const AHEAD = 0.2; // seconds of music scheduled ahead of time
+  const BARS = [
+    { bass: 55.0, arp: [440.0, 523.25, 659.25, 880.0] }, // A minor
+    { bass: 55.0, arp: [440.0, 523.25, 659.25, 987.77] }, // A minor, reaching up
+    { bass: 43.65, arp: [349.23, 440.0, 523.25, 698.46] }, // F
+    { bass: 41.2, arp: [329.63, 415.3, 493.88, 659.25] }, // E, the tension before it comes round
+  ];
+  const ARP = [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 3, 2, 3, 3];
+  const noiseBuf = c.createBuffer(1, Math.floor(c.sampleRate * 0.5), c.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+
+  let step = 0;
+  let nextAt = 0;
+  let timer = null;
+  let out = null;
+  const live = new Set();
+
+  const keep = (node, end) => {
+    live.add(node);
+    node.onended = () => live.delete(node);
+    node.start(Math.max(c.currentTime, end.start));
+    node.stop(end.stop);
+  };
+
+  function voice(t, freq, len, { type = "sawtooth", vol = 0.1, cutoff = 2000, slideTo = null } = {}) {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    const f = c.createBiquadFilter();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + len);
+    f.type = "lowpass";
+    f.frequency.value = cutoff;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(f).connect(g).connect(out);
+    keep(o, { start: t, stop: t + len + 0.02 });
+  }
+
+  function hat(t, vol) {
+    const src = c.createBufferSource();
+    src.buffer = noiseBuf;
+    const f = c.createBiquadFilter();
+    f.type = "highpass";
+    f.frequency.value = 7000;
+    const g = c.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    src.connect(f).connect(g).connect(out);
+    keep(src, { start: t, stop: t + 0.05 });
+  }
+
+  function schedule(s, t) {
+    const bar = BARS[Math.floor(s / 16) % BARS.length];
+    const k = s % 16;
+    if (k % 4 === 0) voice(t, 130, 0.14, { type: "sine", vol: 0.5, cutoff: 800, slideTo: 42 }); // kick
+    if (k % 2 === 0) voice(t, bar.bass * (k % 4 === 2 ? 2 : 1), STEP * 1.7, { vol: 0.2, cutoff: 420 }); // bass pulse
+    hat(t, k % 4 === 2 ? 0.16 : 0.05);
+    const lift = s >= STEPS - 4 ? 2 : 1; // the last beat jumps an octave into the loop
+    voice(t, bar.arp[ARP[k]] * lift, STEP * 0.85, { type: "square", vol: 0.045, cutoff: 2600 });
+    if (k === 0) bar.arp.slice(0, 3).forEach((fq) => voice(t, fq / 2, STEP * 15, { vol: 0.025, cutoff: 900 })); // pad
+  }
+
+  function tick() {
+    while (nextAt < c.currentTime + AHEAD) {
+      schedule(step, nextAt);
+      nextAt += STEP;
+      step = (step + 1) % STEPS;
+    }
+  }
+
+  return {
+    play() {
+      if (timer) return;
+      if (c.state === "suspended") c.resume();
+      out = c.createGain();
+      out.gain.value = 0.55;
+      out.connect(c.destination);
+      nextAt = c.currentTime + 0.05;
+      tick();
+      timer = setInterval(tick, 25);
+    },
+    // Stop right away, remembering where it was.
+    pause() {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+      const now = c.currentTime;
+      const o = out;
+      out = null;
+      o.gain.setValueAtTime(o.gain.value, now);
+      o.gain.linearRampToValueAtTime(0, now + 0.04);
+      for (const n of live) {
+        try {
+          n.stop(now + 0.05);
+        } catch {
+          /* already stopped */
+        }
+      }
+      live.clear();
+      setTimeout(() => o.disconnect(), 300);
+    },
+    stop() {
+      this.pause();
+      step = 0;
+    },
+    running: () => Boolean(timer),
+  };
+}
+
+const SYNTH_MUSIC = {
+  tossupMusic: tossupLoop,
+};
