@@ -1,1 +1,4 @@
-[{ "id": "episode1", "title": "Episode 1", "description": "Three toss-ups, four rounds plus the Final Spin, a Triple Toss-Up, and the Bonus Round" }]
+[
+  { "id": "episode1", "title": "Episode 1", "description": "Three toss-ups, four rounds plus the Final Spin, a Triple Toss-Up, and the Bonus Round" },
+  { "id": "episode2", "title": "Episode 2", "description": "All-new puzzles, same running order as Episode 1" }
+]
